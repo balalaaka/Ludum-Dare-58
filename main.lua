@@ -3,13 +3,13 @@
 
 local world
 local box = {}
-local floor = {}
+local walls = {}
 local font
 
 local gravityPixelsPerSecond2 = 900 -- positive Y is down in LOVE
 local pullStrength = 600 -- proportional gain for attraction force
 local maxForce = 20000 -- clamp to avoid instability
-local linearDamping = 1
+local linearDamping = 0.5
 local currentPullForce = 0
 
 function love.load()
@@ -24,28 +24,35 @@ function love.load()
 	box.shape = love.physics.newRectangleShape(80, 80)
 	box.fixture = love.physics.newFixture(box.body, box.shape, 1)
 	box.fixture:setFriction(0)
-	box.fixture:setRestitution(0.1)
+	box.fixture:setRestitution(1.0)
 	box.body:setLinearDamping(linearDamping)
-	box.body:setAngularDamping(8)
+	box.body:setAngularDamping(0)
+	box.body:setBullet(true)
 	box.color = {0.2, 0.7, 1.0}
 
-	-- Floor (static)
-	floor.body = love.physics.newBody(world, 0, 0, "static")
+	-- Screen walls (static, perfectly elastic)
 	local w, h = love.graphics.getWidth(), love.graphics.getHeight()
-	local function rebuildFloor(width, height)
-		if floor.fixture then floor.fixture:destroy() end
-		floor.shape = love.physics.newRectangleShape(width, height)
-		floor.fixture = love.physics.newFixture(floor.body, floor.shape, 1)
-		floor.fixture:setFriction(0.9)
-		floor.fixture:setRestitution(0.0)
-		floor.height = height
-		floor.width = width
+	local function createOrUpdateEdge(idx, x1, y1, x2, y2)
+		if not walls[idx] then
+			walls[idx] = { body = love.physics.newBody(world, 0, 0, "static") }
+		else
+			if walls[idx].fixture then walls[idx].fixture:destroy() end
+		end
+		walls[idx].shape = love.physics.newEdgeShape(x1, y1, x2, y2)
+		walls[idx].fixture = love.physics.newFixture(walls[idx].body, walls[idx].shape, 0)
+		walls[idx].fixture:setFriction(0)
+		walls[idx].fixture:setRestitution(1.0)
 	end
-	-- keep a reference for resize
-	floor.rebuild = rebuildFloor
-	floor.color = {0.3, 0.3, 0.35}
-	floor.rebuild(w - 40, 20)
-	floor.body:setPosition(w * 0.5, h - 10)
+
+	local function rebuildWalls(width, height)
+		-- Edges exactly at the screen bounds
+		createOrUpdateEdge(1, 0, 0, width, 0)          -- top
+		createOrUpdateEdge(2, 0, height, width, height) -- bottom
+		createOrUpdateEdge(3, 0, 0, 0, height)          -- left
+		createOrUpdateEdge(4, width, 0, width, height)  -- right
+	end
+	walls.rebuild = rebuildWalls
+	walls.rebuild(w, h)
 end
 
 local function applyAttractionForceToBox(dt)
@@ -103,14 +110,6 @@ function love.draw()
 		love.graphics.circle("fill", mx, my, 4)
 	end
 
-	-- Floor draw
-	local fx, fy = floor.body:getPosition()
-	love.graphics.setColor(floor.color)
-	love.graphics.push()
-	love.graphics.translate(fx, fy)
-	love.graphics.rectangle("fill", -floor.width/2, -floor.height/2, floor.width, floor.height)
-	love.graphics.pop()
-
 	drawBox()
 
 	-- UI text
@@ -131,9 +130,7 @@ function love.keypressed(key)
 end
 
 function love.resize(w, h)
-	-- Rebuild and reposition floor when window changes
-	if floor and floor.rebuild then
-		floor.rebuild(math.max(100, w - 40), 20)
-		floor.body:setPosition(w * 0.5, h - 10)
+	if walls and walls.rebuild then
+		walls.rebuild(w, h)
 	end
 end

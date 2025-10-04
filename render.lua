@@ -4,7 +4,7 @@
 local Render = {}
 
 -- Global variables that need to be exposed from main.lua
-local player, staticBoxes, wizardImage, wizardCastingImage, wizardGreenImage, wizardGreenCastingImage, backgroundImage
+local player, staticBoxes, staticTriangles, wizardImage, wizardCastingImage, wizardGreenImage, wizardGreenCastingImage, backgroundImage
 local font, grimoireFont, spellTitleFont, spellDescFont
 local isOnGround, grimoireOpen, currentPage, spells, activeSpellEffects, magicSchool, bookmarks
 
@@ -12,6 +12,7 @@ local isOnGround, grimoireOpen, currentPage, spells, activeSpellEffects, magicSc
 function Render.setGlobals(globals)
 	player = globals.player
 	staticBoxes = globals.staticBoxes
+	staticTriangles = globals.staticTriangles
 	wizardImage = globals.wizardImage
 	wizardCastingImage = globals.wizardCastingImage
 	wizardGreenImage = globals.wizardGreenImage
@@ -103,6 +104,35 @@ function Render.drawStaticBoxes()
 		love.graphics.setColor(0.3, 0.2, 0.1)
 		love.graphics.setLineWidth(2)
 		love.graphics.rectangle("line", -staticBox.width/2, -staticBox.height/2, staticBox.width, staticBox.height)
+		
+		love.graphics.pop()
+	end
+end
+
+-- Draw static triangles
+function Render.drawStaticTriangles()
+	for _, staticTriangle in ipairs(staticTriangles) do
+		local x, y = staticTriangle.body:getPosition()
+		local angle = staticTriangle.body:getAngle()
+		
+		love.graphics.push()
+		love.graphics.translate(x, y)
+		love.graphics.rotate(angle)
+		
+		-- Draw the triangle with its color
+		love.graphics.setColor(staticTriangle.color)
+		
+		-- Use the stored vertices
+		local v1 = staticTriangle.vertices[1]
+		local v2 = staticTriangle.vertices[2]
+		local v3 = staticTriangle.vertices[3]
+		
+		love.graphics.polygon("fill", v1[1], v1[2], v2[1], v2[2], v3[1], v3[2])
+		
+		-- Draw a border
+		love.graphics.setColor(0.1, 0.4, 0.2)
+		love.graphics.setLineWidth(2)
+		love.graphics.polygon("line", v1[1], v1[2], v2[1], v2[2], v3[1], v3[2])
 		
 		love.graphics.pop()
 	end
@@ -261,6 +291,9 @@ function Render.draw()
 	
 	-- Draw static boxes
 	Render.drawStaticBoxes()
+	
+	-- Draw static triangles
+	Render.drawStaticTriangles()
 	
 	-- Draw wizard
 	Render.drawWizard()

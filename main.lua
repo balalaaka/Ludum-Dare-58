@@ -9,6 +9,7 @@ local world
 local player = {}
 local walls = {}
 local staticBoxes = {} -- Array to store static boxes
+local staticTriangles = {} -- Array to store static triangles
 local font
 local wizardImage
 local wizardCastingImage
@@ -67,6 +68,63 @@ local function createStaticBox(x, y, width, height)
 	return staticBox
 end
 
+-- Function to create a static immovable triangle with custom vertices
+-- x, y are the center coordinates of the triangle
+-- v1x, v1y, v2x, v2y, v3x, v3y are the three vertices relative to the center
+local function createStaticTriangle(x, y, v1x, v1y, v2x, v2y, v3x, v3y)
+	local staticTriangle = {}
+	staticTriangle.body = love.physics.newBody(world, x, y, "static")
+	
+	-- Store vertices relative to center
+	staticTriangle.vertices = {
+		{v1x, v1y},
+		{v2x, v2y},
+		{v3x, v3y}
+	}
+	
+	staticTriangle.shape = love.physics.newPolygonShape(v1x, v1y, v2x, v2y, v3x, v3y)
+	staticTriangle.fixture = love.physics.newFixture(staticTriangle.body, staticTriangle.shape, 0)
+	staticTriangle.fixture:setFriction(0)
+	staticTriangle.fixture:setRestitution(0)
+	staticTriangle.color = {0.2, 0.6, 0.4} -- Green color for triangles
+	
+	table.insert(staticTriangles, staticTriangle)
+	return staticTriangle
+end
+
+-- Helper function to create a regular upward-pointing triangle
+-- x, y are the center coordinates
+-- width, height are the base width and height of the triangle
+local function createRegularTriangle(x, y, width, height)
+	local halfWidth = width / 2
+	local topX, topY = 0, -height / 2
+	local leftX, leftY = -halfWidth, height / 2
+	local rightX, rightY = halfWidth, height / 2
+	return createStaticTriangle(x, y, topX, topY, leftX, leftY, rightX, rightY)
+end
+
+-- Helper function to create a right triangle
+-- x, y are the center coordinates
+-- width, height are the base width and height of the triangle
+-- corner specifies which corner is the right angle: "top-left", "top-right", "bottom-left", "bottom-right"
+local function createRightTriangle(x, y, width, height, corner)
+	local halfWidth = width / 2
+	local halfHeight = height / 2
+	
+	if corner == "top-left" then
+		return createStaticTriangle(x, y, -halfWidth, -halfHeight, -halfWidth, halfHeight, halfWidth, halfHeight)
+	elseif corner == "top-right" then
+		return createStaticTriangle(x, y, halfWidth, -halfHeight, -halfWidth, halfHeight, halfWidth, halfHeight)
+	elseif corner == "bottom-left" then
+		return createStaticTriangle(x, y, -halfWidth, -halfHeight, -halfWidth, halfHeight, halfWidth, -halfHeight)
+	elseif corner == "bottom-right" then
+		return createStaticTriangle(x, y, halfWidth, -halfHeight, -halfWidth, -halfHeight, halfWidth, halfHeight)
+	else
+		-- Default to top-left if invalid corner specified
+		return createStaticTriangle(x, y, -halfWidth, -halfHeight, -halfWidth, halfHeight, halfWidth, halfHeight)
+	end
+end
+
 function love.load()
 	love.window.setTitle("Spell Collector")
 	font = love.graphics.newFont(16)
@@ -88,6 +146,7 @@ function love.load()
 	Render.setGlobals({
 		player = player,
 		staticBoxes = staticBoxes,
+		staticTriangles = staticTriangles,
 		wizardImage = wizardImage,
 		wizardCastingImage = wizardCastingImage,
 		wizardGreenImage = wizardGreenImage,
@@ -147,6 +206,14 @@ function love.load()
 	-- Create some example static boxes (using top-left coordinates)
 	createStaticBox(w * 0.3 - 40, h * 0.95 - 30, 80, 60) -- Box on the left side
 	createStaticBox(w * 0.4 - 60, h * 0.90 - 40, 120, 80) -- Box on the right side
+	
+	-- Create some example static triangles (using center coordinates)
+	createRegularTriangle(w * 0.6, h * 0.95, 100, 80) -- Regular triangle on the right side
+	createRightTriangle(w * 0.5, h * 0.85, 60, 50, "top-left") -- Right triangle on the left side
+	
+	-- Create some custom uneven triangles
+	createStaticTriangle(w * 0.8, h * 0.7, -20, -30, -40, 20, 30, 10) -- Custom uneven triangle
+	createStaticTriangle(w * 0.1, h * 0.6, 0, -40, -50, 30, 20, 25) -- Another custom triangle
 end
 
 local function checkGroundContact()

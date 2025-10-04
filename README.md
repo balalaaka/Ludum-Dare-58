@@ -20,7 +20,6 @@ Run `build.bat` to create:
 Run `build_web.bat` to create:
 - Web files in `web/` folder
 - Itch.io package `export_web.zip`
-- Canvas dimensions set to 520x800 for Ludum Dare compatibility
 
 ## Requirements
 

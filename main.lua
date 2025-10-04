@@ -6,7 +6,7 @@ local Render = require("render")
 local Spellbook = require("spellbook")
 
 local world
-local box = {}
+local player = {}
 local walls = {}
 local staticBoxes = {} -- Array to store static boxes
 local font
@@ -21,8 +21,10 @@ local gravityPixelsPerSecond2 = 900 -- positive Y is down in LOVE
 local moveForce = 1000 -- force applied by A/D keys
 local levitateForce = 5000 -- upward force applied by W key
 local linearDamping = 0.5
+local playerWidth = 50
+local playerHeight = 75
 local isOnGround = false
-local groundCheckDistance = 80 -- pixels below box to check for ground
+local groundCheckDistance = 100 -- pixels below box to check for ground
 local raycastResult = nil
 
 local raycastCallback = function(fixture, x, y, xn, yn, fraction)
@@ -40,14 +42,19 @@ local raycastCallback = function(fixture, x, y, xn, yn, fraction)
 	-- Continue raycast to find the closest hit
 	return -1
 end
+
 local startX, startY = 0, 0 -- will be set in love.load()
 local maxHorizontalSpeed = 400 -- maximum horizontal speed in pixels per second
 
 
 -- Function to create a static immovable box
+-- x, y are top-left coordinates (not center)
 local function createStaticBox(x, y, width, height)
 	local staticBox = {}
-	staticBox.body = love.physics.newBody(world, x, y, "static")
+		-- Convert top-left coordinates to center coordinates for physics body
+	local centerX = x + width / 2
+	local centerY = y + height / 2
+	staticBox.body = love.physics.newBody(world, centerX, centerY, "static")
 	staticBox.shape = love.physics.newRectangleShape(width, height)
 	staticBox.fixture = love.physics.newFixture(staticBox.body, staticBox.shape, 0)
 	staticBox.fixture:setFriction(0)
@@ -79,7 +86,7 @@ function love.load()
 	
 	-- Set up render module with global references
 	Render.setGlobals({
-		box = box,
+		player = player,
 		staticBoxes = staticBoxes,
 		wizardImage = wizardImage,
 		wizardCastingImage = wizardCastingImage,
@@ -103,15 +110,15 @@ function love.load()
 
 	-- Set global start position
 	startX, startY = love.graphics.getWidth() * 0.1, love.graphics.getHeight() * 0.9
-	box.body = love.physics.newBody(world, startX, startY, "dynamic")
-	box.shape = love.physics.newRectangleShape(40, 80)
-	box.fixture = love.physics.newFixture(box.body, box.shape, 1)
-	box.fixture:setFriction(1.0)
-	box.fixture:setRestitution(0.6)
-	box.body:setLinearDamping(linearDamping)
-	box.body:setAngularDamping(0)
-	box.body:setBullet(true)
-	box.color = {0.2, 0.7, 1.0}
+	player.body = love.physics.newBody(world, startX, startY, "dynamic")
+	player.shape = love.physics.newRectangleShape(playerWidth, playerHeight)
+	player.fixture = love.physics.newFixture(player.body, player.shape, 1)
+	player.fixture:setFriction(1.0)
+	player.fixture:setRestitution(0.6)
+	player.body:setLinearDamping(linearDamping)
+	player.body:setAngularDamping(0)
+	player.body:setBullet(true)
+	player.color = {0.2, 0.7, 1.0}
 
 	-- Screen walls
 	local w, h = love.graphics.getWidth(), love.graphics.getHeight()
@@ -137,20 +144,19 @@ function love.load()
 	walls.rebuild = rebuildWalls
 	walls.rebuild(w, h)
 	
-	-- Create some example static boxes
-	createStaticBox(w * 0.3, h * 0.95, 80, 60) -- Box on the left side
-	createStaticBox(w * 0.7, h * 0.5, 60, 80) -- Box on the right side
+	-- Create some example static boxes (using top-left coordinates)
+	createStaticBox(w * 0.3 - 40, h * 0.95 - 30, 80, 60) -- Box on the left side
+	createStaticBox(w * 0.4 - 60, h * 0.90 - 40, 120, 80) -- Box on the right side
 end
 
 local function checkGroundContact()
-	local bx, by = box.body:getPosition()
-	local boxHeight = 80
+	local px, py = player.body:getPosition()
 	
-	-- Cast a ray downward from the bottom of the player box
-	local rayStartX = bx
-	local rayStartY = by + boxHeight/2  -- Bottom of the player box
-	local rayEndX = bx
-	local rayEndY = rayStartY + groundCheckDistance
+	-- Cast a ray downward from the center of the player
+	local rayStartX = px
+	local rayStartY = py
+	local rayEndX = px
+	local rayEndY = py + groundCheckDistance
 	
 	-- Reset raycast result before performing raycast
 	raycastResult = nil
@@ -163,12 +169,12 @@ local function checkGroundContact()
 	
 	-- Fallback: check if close to bottom wall
 	if not isOnGround then
-		isOnGround = (by + boxHeight/2 + groundCheckDistance) >= love.graphics.getHeight()
+		isOnGround = (py + groundCheckDistance) >= love.graphics.getHeight()
 	end
 end
 
 local function applyMovementForces()
-	local vx, vy = box.body:getLinearVelocity()
+	local vx, vy = player.body:getLinearVelocity()
 	local currentSpeed = math.abs(vx)
 	
 	-- Horizontal movement with A/D keys (with speed limiting)
@@ -177,7 +183,7 @@ local function applyMovementForces()
 		if vx > -maxHorizontalSpeed then
 			-- Reduce force as we approach max speed
 			local speedRatio = math.max(0, (maxHorizontalSpeed + vx) / maxHorizontalSpeed)
-			box.body:applyForce(-moveForce * speedRatio, 0)
+			player.body:applyForce(-moveForce * speedRatio, 0)
 		end
 	end
 	if love.keyboard.isDown("d") or love.keyboard.isDown("right") then
@@ -185,14 +191,14 @@ local function applyMovementForces()
 		if vx < maxHorizontalSpeed then
 			-- Reduce force as we approach max speed
 			local speedRatio = math.max(0, (maxHorizontalSpeed - vx) / maxHorizontalSpeed)
-			box.body:applyForce(moveForce * speedRatio, 0)
+			player.body:applyForce(moveForce * speedRatio, 0)
 		end
 	end
 	
 	-- Levitate with W key (only near ground)
 	if love.keyboard.isDown("w") or love.keyboard.isDown("up") then
 		if isOnGround then
-			box.body:applyForce(0, -levitateForce)
+			player.body:applyForce(0, -levitateForce)
 		end
 	end
 end
@@ -209,10 +215,10 @@ end
 
 function love.keypressed(key)
 	if key == "r" then
-		box.body:setPosition(startX, startY)
-		box.body:setLinearVelocity(0, 0)
-		box.body:setAngularVelocity(0)
-		box.body:setAngle(0)
+		player.body:setPosition(startX, startY)
+		player.body:setLinearVelocity(0, 0)
+		player.body:setAngularVelocity(0)
+		player.body:setAngle(0)
 	elseif key == "g" then
 		Spellbook.toggleGrimoire()
 	end

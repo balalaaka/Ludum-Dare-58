@@ -4,13 +4,13 @@
 local Render = {}
 
 -- Global variables that need to be exposed from main.lua
-local box, staticBoxes, wizardImage, wizardCastingImage, wizardGreenImage, wizardGreenCastingImage, backgroundImage
+local player, staticBoxes, wizardImage, wizardCastingImage, wizardGreenImage, wizardGreenCastingImage, backgroundImage
 local font, grimoireFont, spellTitleFont, spellDescFont
 local isOnGround, grimoireOpen, currentPage, spells, activeSpellEffects, magicSchool, bookmarks
 
 -- Function to set the global references
 function Render.setGlobals(globals)
-	box = globals.box
+	player = globals.player
 	staticBoxes = globals.staticBoxes
 	wizardImage = globals.wizardImage
 	wizardCastingImage = globals.wizardCastingImage
@@ -43,8 +43,8 @@ end
 
 -- Draw the wizard
 function Render.drawWizard()
-	local x, y = box.body:getPosition()
-	local angle = box.body:getAngle()
+	local x, y = player.body:getPosition()
+	local angle = player.body:getAngle()
 	love.graphics.push()
 	love.graphics.translate(x, y)
 	love.graphics.rotate(angle)
@@ -59,7 +59,7 @@ function Render.drawWizard()
 	-- Get the image dimensions
 	local imgW, imgH = currentImage:getDimensions()
 	-- Get the physics shape dimensions
-	local shape = box.shape
+	local shape = player.shape
 	local x1, y1, x2, y2, x3, y3, x4, y4 = shape:getPoints()
 	
 	local physicsW = math.sqrt((x2 - x1)^2 + (y2 - y1)^2)

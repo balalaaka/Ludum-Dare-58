@@ -159,11 +159,37 @@ function love.keypressed(key)
 	end
 end
 
+-- Check if mouse is over a spell in the grimoire
+local function isMouseOverSpell(spellIndex)
+	if not Spellbook.isGrimoireOpen() then return false end
+	
+	local screenW, screenH = love.graphics.getWidth(), love.graphics.getHeight()
+	local pageW = screenW * 0.8
+	local pageH = screenH * 0.8
+	local pageX = (screenW - pageW) / 2
+	local pageY = (screenH - pageH) / 2
+	
+	local mx, my = love.mouse.getPosition()
+	
+	-- Calculate spell position
+	local spellW = pageW * 0.45
+	local spellH = pageH * 0.35
+	local spellSpacing = pageW * 0.05
+	local topSpellY = pageY + 80
+	
+	local col = ((spellIndex - 1) % 2) + 1
+	local row = math.floor((spellIndex - 1) / 2) + 1
+	local spellX = pageX + spellSpacing + (col - 1) * (spellW + spellSpacing)
+	local spellY = topSpellY + (row - 1) * (spellH + 20)
+	
+	return mx >= spellX and mx <= spellX + spellW and my >= spellY and my <= spellY + spellH
+end
+
 function love.mousepressed(x, y, button)
-	if Spellbook.handleMouseClick(x, y, button) then
+	if button == 1 and Spellbook.isGrimoireOpen() then -- Left mouse button and grimoire is open
 		-- Check if clicking on any spell
 		for i = 1, 4 do
-			if Render.isMouseOverSpell(i) then
+			if isMouseOverSpell(i) then
 				local spells = Spellbook.getSpells()
 				local spell = spells[i]
 				if Spellbook.canCastSpell(spell.name) then

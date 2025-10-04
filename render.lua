@@ -84,23 +84,6 @@ function Render.drawBackground()
 	love.graphics.draw(backgroundImage, 0, 0, 0, scaleX, scaleY)
 end
 
--- Check if mouse is over a spell in the grimoire
-local function isMouseOverSpell(spellIndex, pageX, pageY, pageW, pageH)
-	local mx, my = love.mouse.getPosition()
-	
-	-- Calculate spell position
-	local spellW = pageW * 0.45
-	local spellH = pageH * 0.35
-	local spellSpacing = pageW * 0.05
-	local topSpellY = pageY + 80
-	
-	local col = ((spellIndex - 1) % 2) + 1
-	local row = math.floor((spellIndex - 1) / 2) + 1
-	local spellX = pageX + spellSpacing + (col - 1) * (spellW + spellSpacing)
-	local spellY = topSpellY + (row - 1) * (spellH + 20)
-	
-	return mx >= spellX and mx <= spellX + spellW and my >= spellY and my <= spellY + spellH
-end
 
 -- Draw the grimoire
 function Render.drawGrimoire()
@@ -262,15 +245,5 @@ function Render.draw()
 	Render.drawUI()
 end
 
--- Check if mouse is over a spell (for clicking)
-function Render.isMouseOverSpell(spellIndex)
-	local screenW, screenH = love.graphics.getWidth(), love.graphics.getHeight()
-	local pageW = screenW * 0.8
-	local pageH = screenH * 0.8
-	local pageX = (screenW - pageW) / 2
-	local pageY = (screenH - pageH) / 2
-	
-	return isMouseOverSpell(spellIndex, pageX, pageY, pageW, pageH)
-end
 
 return Render

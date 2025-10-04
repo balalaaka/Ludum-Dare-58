@@ -80,15 +80,6 @@ function Spellbook.getCurrentPage()
 	return currentPage
 end
 
--- Handle mouse clicks in grimoire
-function Spellbook.handleMouseClick(x, y, button)
-	if button == 1 and grimoireOpen then -- Left mouse button
-		-- This will be handled by the render module since it needs access to screen dimensions
-		-- The render module will call back to check if a spell was clicked
-		return true
-	end
-	return false
-end
 
 -- Check if a spell can be cast (not ???)
 function Spellbook.canCastSpell(spellName)

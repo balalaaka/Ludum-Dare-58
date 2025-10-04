@@ -10,9 +10,9 @@ globs:
 
 Use this command
 ```
-& "C:\Program Files\Git\bin\bash.exe" -c "love ."
+& "C:\Program Files\Git\bin\bash.exe" -c "timeout 3 love . 2>&1"
 ```
-to confirm your code can be ran, and use the terminal output to see compilation errors or debug traces. This is not an instant operation, and user will have to do the tests as well as close the program for you.
+to confirm your code can be ran, and use the terminal output to see compilation errors or debug traces. Exclude timeout if need user input.
 
 
 Do not use

@@ -4,13 +4,14 @@
 local Render = {}
 
 -- Global variables that need to be exposed from main.lua
-local box, wizardImage, wizardCastingImage, wizardGreenImage, wizardGreenCastingImage, backgroundImage
+local box, staticBoxes, wizardImage, wizardCastingImage, wizardGreenImage, wizardGreenCastingImage, backgroundImage
 local font, grimoireFont, spellTitleFont, spellDescFont
 local isOnGround, grimoireOpen, currentPage, spells, activeSpellEffects, magicSchool, bookmarks
 
 -- Function to set the global references
 function Render.setGlobals(globals)
 	box = globals.box
+	staticBoxes = globals.staticBoxes
 	wizardImage = globals.wizardImage
 	wizardCastingImage = globals.wizardCastingImage
 	wizardGreenImage = globals.wizardGreenImage
@@ -82,6 +83,29 @@ function Render.drawBackground()
 	
 	love.graphics.setColor(1, 1, 1) -- No color tinting
 	love.graphics.draw(backgroundImage, 0, 0, 0, scaleX, scaleY)
+end
+
+-- Draw static boxes
+function Render.drawStaticBoxes()
+	for _, staticBox in ipairs(staticBoxes) do
+		local x, y = staticBox.body:getPosition()
+		local angle = staticBox.body:getAngle()
+		
+		love.graphics.push()
+		love.graphics.translate(x, y)
+		love.graphics.rotate(angle)
+		
+		-- Draw the box with its color
+		love.graphics.setColor(staticBox.color)
+		love.graphics.rectangle("fill", -staticBox.width/2, -staticBox.height/2, staticBox.width, staticBox.height)
+		
+		-- Draw a border
+		love.graphics.setColor(0.3, 0.2, 0.1)
+		love.graphics.setLineWidth(2)
+		love.graphics.rectangle("line", -staticBox.width/2, -staticBox.height/2, staticBox.width, staticBox.height)
+		
+		love.graphics.pop()
+	end
 end
 
 
@@ -234,6 +258,9 @@ end
 function Render.draw()
 	-- Draw background first
 	Render.drawBackground()
+	
+	-- Draw static boxes
+	Render.drawStaticBoxes()
 	
 	-- Draw wizard
 	Render.drawWizard()

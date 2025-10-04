@@ -8,6 +8,7 @@ local Spellbook = require("spellbook")
 local world
 local box = {}
 local walls = {}
+local staticBoxes = {} -- Array to store static boxes
 local font
 local wizardImage
 local wizardCastingImage
@@ -21,9 +22,43 @@ local moveForce = 1000 -- force applied by A/D keys
 local levitateForce = 5000 -- upward force applied by W key
 local linearDamping = 0.5
 local isOnGround = false
-local groundCheckDistance = 10 -- pixels below box to check for ground
+local groundCheckDistance = 80 -- pixels below box to check for ground
+local raycastResult = nil
+
+local raycastCallback = function(fixture, x, y, xn, yn, fraction)
+	local body = fixture:getBody()
+	local bodyType = body:getType()
+	
+	-- Check if the fixture belongs to a static body (ground or static box)
+	if bodyType == "static" then
+		-- Store the closest fraction found (0 = closest to ray start)
+		if raycastResult == nil or fraction < raycastResult then
+			raycastResult = fraction
+		end
+	end
+	
+	-- Continue raycast to find the closest hit
+	return -1
+end
 local startX, startY = 0, 0 -- will be set in love.load()
 local maxHorizontalSpeed = 400 -- maximum horizontal speed in pixels per second
+
+
+-- Function to create a static immovable box
+local function createStaticBox(x, y, width, height)
+	local staticBox = {}
+	staticBox.body = love.physics.newBody(world, x, y, "static")
+	staticBox.shape = love.physics.newRectangleShape(width, height)
+	staticBox.fixture = love.physics.newFixture(staticBox.body, staticBox.shape, 0)
+	staticBox.fixture:setFriction(0)
+	staticBox.fixture:setRestitution(0)
+	staticBox.width = width
+	staticBox.height = height
+	staticBox.color = {0.6, 0.4, 0.2} -- Brown color for boxes
+	
+	table.insert(staticBoxes, staticBox)
+	return staticBox
+end
 
 function love.load()
 	love.window.setTitle("Spell Collector")
@@ -45,6 +80,7 @@ function love.load()
 	-- Set up render module with global references
 	Render.setGlobals({
 		box = box,
+		staticBoxes = staticBoxes,
 		wizardImage = wizardImage,
 		wizardCastingImage = wizardCastingImage,
 		wizardGreenImage = wizardGreenImage,
@@ -71,7 +107,7 @@ function love.load()
 	box.shape = love.physics.newRectangleShape(40, 80)
 	box.fixture = love.physics.newFixture(box.body, box.shape, 1)
 	box.fixture:setFriction(1.0)
-	box.fixture:setRestitution(1.0)
+	box.fixture:setRestitution(0.6)
 	box.body:setLinearDamping(linearDamping)
 	box.body:setAngularDamping(0)
 	box.body:setBullet(true)
@@ -88,7 +124,7 @@ function love.load()
 		walls[idx].shape = love.physics.newEdgeShape(x1, y1, x2, y2)
 		walls[idx].fixture = love.physics.newFixture(walls[idx].body, walls[idx].shape, 0)
 		walls[idx].fixture:setFriction(0)
-		walls[idx].fixture:setRestitution(1.0)
+		walls[idx].fixture:setRestitution(0)
 	end
 
 	local function rebuildWalls(width, height)
@@ -100,12 +136,35 @@ function love.load()
 	end
 	walls.rebuild = rebuildWalls
 	walls.rebuild(w, h)
+	
+	-- Create some example static boxes
+	createStaticBox(w * 0.3, h * 0.95, 80, 60) -- Box on the left side
+	createStaticBox(w * 0.7, h * 0.5, 60, 80) -- Box on the right side
 end
 
 local function checkGroundContact()
 	local bx, by = box.body:getPosition()
-	-- Simple ground check - if box is close to bottom wall
-	isOnGround = (by + 80 + groundCheckDistance) >= love.graphics.getHeight()
+	local boxHeight = 80
+	
+	-- Cast a ray downward from the bottom of the player box
+	local rayStartX = bx
+	local rayStartY = by + boxHeight/2  -- Bottom of the player box
+	local rayEndX = bx
+	local rayEndY = rayStartY + groundCheckDistance
+	
+	-- Reset raycast result before performing raycast
+	raycastResult = nil
+	
+	-- Perform the raycast
+	world:rayCast(rayStartX, rayStartY, rayEndX, rayEndY, raycastCallback)
+	
+	-- If we hit something within the ground check distance, we're on ground
+	isOnGround = raycastResult ~= nil and raycastResult <= 1.0
+	
+	-- Fallback: check if close to bottom wall
+	if not isOnGround then
+		isOnGround = (by + boxHeight/2 + groundCheckDistance) >= love.graphics.getHeight()
+	end
 end
 
 local function applyMovementForces()

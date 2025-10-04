@@ -1,5 +1,9 @@
 -- luacheck: globals love love.graphics love.physics love.window love.mouse
--- LOVE2D Physics draggable box example
+-- Spell Collector - Main Game File
+
+-- Import modules
+local Render = require("render")
+local Spellbook = require("spellbook")
 
 local world
 local box = {}
@@ -11,34 +15,6 @@ local wizardGreenImage
 local wizardGreenCastingImage
 local backgroundImage
 local grimoireFont, spellTitleFont, spellDescFont
-
--- Grimoire system
-local grimoireOpen = false
-local currentPage = 1
-local activeSpellEffects = {} -- Currently active spell effects
-
--- Spell effect system
-local spellEffects = {
-	["Become Green"] = {
-		normalImage = "wizardGreenImage",
-		castingImage = "wizardGreenCastingImage",
-		description = "You feel your skin tingling with magical energy as you turn a vibrant shade of green."
-	}
-	-- Future spells can be added here easily
-}
-
-local spells = {
-	[1] = {
-		name = "Become Green",
-		description = "Transform yourself into a vibrant green color, granting camouflage in forest environments.",
-		image = "green.png"
-	},
-	[2] = { name = "???", description = "Hidden beneath the forest temple", image = "???" },
-	[3] = { name = "???", description = "Follow us on Twitter to unlock this spell", image = "???" },
-	[4] = { name = "???", description = "Available now for owners of 'Spell Collector: Season 1 Pass'", image = "???" }
-}
-local magicSchool = "Transmutation"
-local bookmarks = {"Transmutation", "Evocation", "Abjuration", "Sleep", "Disenchantment"}
 
 local gravityPixelsPerSecond2 = 900 -- positive Y is down in LOVE
 local moveForce = 1000 -- force applied by A/D keys
@@ -62,6 +38,30 @@ function love.load()
 	grimoireFont = love.graphics.newFont(20)
 	spellTitleFont = love.graphics.newFont(18)
 	spellDescFont = love.graphics.newFont(14)
+	
+	-- Initialize modules
+	Spellbook.init()
+	
+	-- Set up render module with global references
+	Render.setGlobals({
+		box = box,
+		wizardImage = wizardImage,
+		wizardCastingImage = wizardCastingImage,
+		wizardGreenImage = wizardGreenImage,
+		wizardGreenCastingImage = wizardGreenCastingImage,
+		backgroundImage = backgroundImage,
+		font = font,
+		grimoireFont = grimoireFont,
+		spellTitleFont = spellTitleFont,
+		spellDescFont = spellDescFont,
+		isOnGround = isOnGround,
+		grimoireOpen = function() return Spellbook.isGrimoireOpen() end,
+		currentPage = function() return Spellbook.getCurrentPage() end,
+		spells = function() return Spellbook.getSpells() end,
+		activeSpellEffects = function() return Spellbook.getActiveSpellEffects() end,
+		magicSchool = function() return Spellbook.getMagicSchool() end,
+		bookmarks = function() return Spellbook.getBookmarks() end
+	})
 
 	world = love.physics.newWorld(0, gravityPixelsPerSecond2, true)
 
@@ -144,233 +144,8 @@ function love.update(dt)
 	applyMovementForces()
 end
 
-local function castSpell(spellName)
-	if spellEffects[spellName] then
-		activeSpellEffects[spellName] = true
-		print("Cast: " .. spellName .. " - " .. spellEffects[spellName].description)
-	end
-end
-
-local function getCurrentWizardImage(isCasting)
-	-- Check for active spell effects in order of priority
-	if activeSpellEffects["Become Green"] then
-		return isCasting and wizardGreenCastingImage or wizardGreenImage
-	end
-	
-	-- Default wizard images
-	return isCasting and wizardCastingImage or wizardImage
-end
-
-local function drawWizard()
-	local x, y = box.body:getPosition()
-	local angle = box.body:getAngle()
-	love.graphics.push()
-	love.graphics.translate(x, y)
-	love.graphics.rotate(angle)
-	
-	-- Determine which image to use based on movement/levitation and active spells
-	local isMoving = love.keyboard.isDown("a") or love.keyboard.isDown("d") or 
-	                 love.keyboard.isDown("left") or love.keyboard.isDown("right")
-	local isLevitating = love.keyboard.isDown("w") or love.keyboard.isDown("up")
-	local isCasting = isMoving or isLevitating
-	local currentImage = getCurrentWizardImage(isCasting)
-	
-	-- Get the image dimensions
-	local imgW, imgH = currentImage:getDimensions()
-	-- Get the physics shape dimensions
-	local shape = box.shape
-	local x1, y1, x2, y2, x3, y3, x4, y4 = shape:getPoints()
-	
-	local physicsW = math.sqrt((x2 - x1)^2 + (y2 - y1)^2)
-	local physicsH = math.sqrt((x3 - x2)^2 + (y3 - y2)^2)
-	
-	-- Draw the appropriate wizard image centered on the physics body
-	love.graphics.setColor(1, 1, 1) -- white tint (no color modification)
-	love.graphics.draw(currentImage, 0, 0, 0, physicsW/imgW, physicsH/imgH, imgW/2, imgH/2)
-	
-	love.graphics.pop()
-end
-
-local function isMouseOverSpell(spellIndex, pageX, pageY, pageW, pageH)
-	local mx, my = love.mouse.getPosition()
-	
-	-- Calculate spell position
-	local spellW = pageW * 0.45
-	local spellH = pageH * 0.35
-	local spellSpacing = pageW * 0.05
-	local topSpellY = pageY + 80
-	
-	local col = ((spellIndex - 1) % 2) + 1
-	local row = math.floor((spellIndex - 1) / 2) + 1
-	local spellX = pageX + spellSpacing + (col - 1) * (spellW + spellSpacing)
-	local spellY = topSpellY + (row - 1) * (spellH + 20)
-	
-	return mx >= spellX and mx <= spellX + spellW and my >= spellY and my <= spellY + spellH
-end
-
-local function drawBackground()
-	local screenW, screenH = love.graphics.getWidth(), love.graphics.getHeight()
-	local imgW, imgH = backgroundImage:getDimensions()
-	
-	-- Scale the background to cover the entire screen
-	local scaleX = screenW / imgW
-	local scaleY = screenH / imgH
-	
-	love.graphics.setColor(1, 1, 1) -- No color tinting
-	love.graphics.draw(backgroundImage, 0, 0, 0, scaleX, scaleY)
-end
-
-local function drawGrimoire()
-	if not grimoireOpen then return end
-	
-	local screenW, screenH = love.graphics.getWidth(), love.graphics.getHeight()
-	local pageW = screenW * 0.8
-	local pageH = screenH * 0.8
-	local pageX = (screenW - pageW) / 2
-	local pageY = (screenH - pageH) / 2
-	
-	-- Draw page background (parchment-like)
-	love.graphics.setColor(0.95, 0.9, 0.8)
-	love.graphics.rectangle("fill", pageX, pageY, pageW, pageH, 8, 8)
-	
-	-- Draw page border
-	love.graphics.setColor(0.7, 0.6, 0.4)
-	love.graphics.setLineWidth(3)
-	love.graphics.rectangle("line", pageX, pageY, pageW, pageH, 8, 8)
-	
-	-- Draw magic school title at top
-	love.graphics.setFont(grimoireFont)
-	love.graphics.setColor(0.2, 0.1, 0.0)
-	local titleW = grimoireFont:getWidth(magicSchool)
-	love.graphics.print(magicSchool, pageX + (pageW - titleW) / 2, pageY + 20)
-	
-	-- Draw spells in 2x2 grid
-	local spellW = pageW * 0.45
-	local spellH = pageH * 0.35
-	local spellSpacing = pageW * 0.05
-	local topSpellY = pageY + 80
-	
-	for i = 1, 4 do
-		local col = ((i - 1) % 2) + 1
-		local row = math.floor((i - 1) / 2) + 1
-		local spellX = pageX + spellSpacing + (col - 1) * (spellW + spellSpacing)
-		local spellY = topSpellY + (row - 1) * (spellH + 20)
-		
-		local spell = spells[i]
-		
-		-- Draw spell box with different colors for active/available/unknown spells
-		local isActive = activeSpellEffects[spell.name]
-		local isAvailable = spell.name ~= "???"
-		
-		if isActive then
-			love.graphics.setColor(0.8, 0.9, 0.8) -- Light green for active spells
-		elseif isAvailable then
-			love.graphics.setColor(0.9, 0.85, 0.75) -- Normal parchment color
-		else
-			love.graphics.setColor(0.7, 0.7, 0.7) -- Gray for unknown spells
-		end
-		love.graphics.rectangle("fill", spellX, spellY, spellW, spellH, 4, 4)
-		
-		love.graphics.setColor(0.6, 0.5, 0.3)
-		love.graphics.setLineWidth(2)
-		love.graphics.rectangle("line", spellX, spellY, spellW, spellH, 4, 4)
-		
-		-- Draw spell name
-		love.graphics.setFont(spellTitleFont)
-		love.graphics.setColor(0.2, 0.1, 0.0)
-		love.graphics.print(spell.name, spellX + 10, spellY + 10)
-		
-		-- Draw image placeholder
-		local imgW, imgH = 60, 60
-		local imgX = spellX + 10
-		local imgY = spellY + 35
-		love.graphics.setColor(0.8, 0.8, 0.8)
-		love.graphics.rectangle("fill", imgX, imgY, imgW, imgH)
-		love.graphics.setColor(0.5, 0.5, 0.5)
-		love.graphics.rectangle("line", imgX, imgY, imgW, imgH)
-		
-		-- Draw image placeholder text
-		love.graphics.setFont(font)
-		love.graphics.setColor(0.3, 0.3, 0.3)
-		local placeholderW = font:getWidth(spell.image)
-		local placeholderH = font:getHeight()
-		love.graphics.print(spell.image, imgX + (imgW - placeholderW) / 2, imgY + (imgH - placeholderH) / 2)
-		
-		-- Draw description
-		love.graphics.setFont(spellDescFont)
-		love.graphics.setColor(0.3, 0.2, 0.1)
-		local descW = spellW - imgW - 30
-		local descX = imgX + imgW + 10
-		local descY = imgY + 5
-		
-		-- Word wrap description
-		local words = {}
-		for word in spell.description:gmatch("%S+") do
-			table.insert(words, word)
-		end
-		
-		local line = ""
-		local y = descY
-		for _, word in ipairs(words) do
-			local testLine = line == "" and word or line .. " " .. word
-			if spellDescFont:getWidth(testLine) <= descW then
-				line = testLine
-			else
-				if line ~= "" then
-					love.graphics.print(line, descX, y)
-					y = y + spellDescFont:getHeight() + 2
-				end
-				line = word
-			end
-		end
-		if line ~= "" then
-			love.graphics.print(line, descX, y)
-		end
-	end
-	
-	-- Draw bookmarks at bottom
-	local bookmarkH = 30
-	local bookmarkY = pageY + pageH - bookmarkH - 10
-	local bookmarkW = (pageW - 20) / #bookmarks
-	
-	for i, bookmark in ipairs(bookmarks) do
-		local bookmarkX = pageX + 10 + (i - 1) * bookmarkW
-		local bookmarkColor = i == currentPage and {0.9, 0.8, 0.6} or {0.8, 0.7, 0.5}
-		
-		love.graphics.setColor(bookmarkColor)
-		love.graphics.rectangle("fill", bookmarkX, bookmarkY, bookmarkW - 2, bookmarkH, 2, 2)
-		love.graphics.setColor(0.6, 0.5, 0.3)
-		love.graphics.rectangle("line", bookmarkX, bookmarkY, bookmarkW - 2, bookmarkH, 2, 2)
-		
-		love.graphics.setFont(font)
-		love.graphics.setColor(0.2, 0.1, 0.0)
-		local textW = font:getWidth(bookmark)
-		love.graphics.print(bookmark, bookmarkX + (bookmarkW - textW) / 2, bookmarkY + 8)
-	end
-end
-
 function love.draw()
-	-- Draw background first
-	drawBackground()
-	
-	-- Draw wizard
-	drawWizard()
-	
-	-- Draw grimoire if open
-	drawGrimoire()
-
-	-- UI text (only show when grimoire is closed)
-	if not grimoireOpen then
-		love.graphics.setFont(font)
-		love.graphics.setColor(1, 1, 1, 0.85)
-		local info = string.format("WASD to move and levitate\nA/D - Move left/right\nW - Levitate (when near ground)\nPress R to reset position\nPress G to open grimoire")
-		love.graphics.print(info, 12, 12)
-	else
-		-- Show grimoire instructions
-		love.graphics.setFont(font)
-		love.graphics.setColor(1, 1, 1, 0.85)
-		love.graphics.print("Press G to close grimoire\nClick spells in grimoire to cast them", 12, 12)
-	end
+	Render.draw()
 end
 
 function love.keypressed(key)
@@ -380,24 +155,19 @@ function love.keypressed(key)
 		box.body:setAngularVelocity(0)
 		box.body:setAngle(0)
 	elseif key == "g" then
-		grimoireOpen = not grimoireOpen
+		Spellbook.toggleGrimoire()
 	end
 end
 
 function love.mousepressed(x, y, button)
-	if button == 1 and grimoireOpen then -- Left mouse button
-		local screenW, screenH = love.graphics.getWidth(), love.graphics.getHeight()
-		local pageW = screenW * 0.8
-		local pageH = screenH * 0.8
-		local pageX = (screenW - pageW) / 2
-		local pageY = (screenH - pageH) / 2
-		
+	if Spellbook.handleMouseClick(x, y, button) then
 		-- Check if clicking on any spell
 		for i = 1, 4 do
-			if isMouseOverSpell(i, pageX, pageY, pageW, pageH) then
+			if Render.isMouseOverSpell(i) then
+				local spells = Spellbook.getSpells()
 				local spell = spells[i]
-				if spell.name ~= "???" and spellEffects[spell.name] then
-					castSpell(spell.name)
+				if Spellbook.canCastSpell(spell.name) then
+					Spellbook.castSpell(spell.name)
 				end
 				break
 			end
